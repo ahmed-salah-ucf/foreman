@@ -7,14 +7,14 @@ import (
 )
 
 func main() {
-	flag.NewFlagSet("start", flag.ExitOnError)
+	flag.NewFlagSet(string(startCmd), flag.ExitOnError)
 
 	if len(os.Args) < 2 {
 		// To-Do
 		fmt.Println("usage")
 		os.Exit(1)
 	}
-	
+
 	switch SubCommand(os.Args[1]) {
 	case startCmd:
 		foreman := initForeman()

@@ -18,10 +18,10 @@ type Service struct {
 	info ServiceInfo
 }
 
-// type Foreman struct {
-// 	procfile string
-// 	services map[string]Service
-// 	servicesGraph map[string][]string
-// }
+type Foreman struct {
+	procfile string
+	services map[string]Service
+	servicesGraph map[string][]string
+}
 
 type SubCommand string
