@@ -15,6 +15,7 @@ type ServiceInfo struct {
 
 type Service struct {
 	name string
+	pid int
 	info ServiceInfo
 }
 

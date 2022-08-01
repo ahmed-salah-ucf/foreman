@@ -2,6 +2,7 @@ package main
 
 const (
 	MaxNumServices = 10
+	MaxSizeChannel = 30
 	NumWorkersThreads = 5
 )
 const (

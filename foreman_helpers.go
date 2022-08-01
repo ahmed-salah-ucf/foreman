@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -15,6 +18,8 @@ func new() *Foreman {
 	}
 	return &foreman
 }
+
+
 
 func initForeman() *Foreman {
 	foreman := new()
@@ -33,7 +38,7 @@ func (foreman *Foreman) runServices() {
 
 	topologicallySortedServices := foreman.topoSortServices()
 	servicesToRunChannel := make(chan string, MaxNumServices)
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(5 * time.Second)
 
 	foreman.createServiceRunners(servicesToRunChannel, NumWorkersThreads)
 	
@@ -65,8 +70,29 @@ func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers 
 func (foreman *Foreman) serviceRunner(services <-chan string) {
 	fmt.Println("enter service runner")
 	for serviceName := range services {
-		fmt.Println("run service " + serviceName)
+		foreman.runService(serviceName)
 	}
+}
+
+func (foreman *Foreman) runService(serviceName string) {
+	service := foreman.services[serviceName]
+	if (len(service.info.cmd)) > 0 {
+		cmdName, cmdArgs := parseCmdLine(service.info.cmd)
+		serviceCmd := exec.Command(cmdName, cmdArgs...)
+
+		serviceCmd.Start()
+		service.pid = serviceCmd.Process.Pid
+	}
+
+	foreman.services[serviceName] = service
+}
+
+func parseCmdLine(cmd string) (name string, arg []string) {
+	cmdLine := strings.Split(cmd, " ")
+	cmdName := cmdLine[0]
+	cmdArgs := cmdLine[1:]
+
+	return cmdName, cmdArgs
 }
 
 func (foreman *Foreman) checker() {
@@ -76,5 +102,24 @@ func (foreman *Foreman) checker() {
 }
 
 func runServiceChecks(service Service) {
-	
+	if len(service.info.checks.cmd) > 0 {
+		cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
+		
+		checkCmd := exec.Command(cmdName, cmdArgs...)
+
+		if err := checkCmd.Run(); err != nil {
+			if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+				syscall.Kill(service.pid, syscall.SIGKILL)
+				return
+			}
+		}
+	}
+
+	if len(service.info.checks.tcpPorts) > 0 {
+		// To-Do
+	}
+
+	if len(service.info.checks.udpPorts) > 0 {
+		// To-Do
+	}
 }
