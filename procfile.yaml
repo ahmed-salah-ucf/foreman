@@ -15,5 +15,3 @@ redis:
     checks:
         cmd: redis-cli -p 6010 ping
         tcp_ports: [6010]
-    deps: 
-        - app1
