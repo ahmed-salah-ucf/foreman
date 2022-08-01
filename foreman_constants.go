@@ -1,6 +1,10 @@
 package main
 
 const (
+	MaxNumServices = 10
+	NumWorkersThreads = 5
+)
+const (
 	startCmd SubCommand = "start"
 )
 

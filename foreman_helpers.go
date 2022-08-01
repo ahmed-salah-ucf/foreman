@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func new() *Foreman {
@@ -31,23 +32,49 @@ func (foreman *Foreman) runServices() {
 	}
 
 	topologicallySortedServices := foreman.topoSortServices()
+	servicesToRunChannel := make(chan string, MaxNumServices)
+	ticker := time.NewTicker(500 * time.Millisecond)
 
-	for _, serviceName := range topologicallySortedServices {
-		foreman.runService(serviceName)
+	foreman.createServiceRunners(servicesToRunChannel, NumWorkersThreads)
+	
+	sendServicesOnChannel(topologicallySortedServices, servicesToRunChannel)
+
+	foreman.runPeriodicChecker(ticker)
+}
+
+func (foreman *Foreman) runPeriodicChecker(ticker *time.Ticker) {
+	for range ticker.C {
+		go foreman.checker()
 	}
 }
 
-
-func (foreman *Foreman) runService(serviceName string) {
-	if !servicePassChecks(foreman.services[serviceName].info.checks) {
-		fmt.Println("service {service name} doesn't pass check: " + "check value")
-		os.Exit(1)
+func sendServicesOnChannel(servicesList []string, servicesChannel chan<- string) {
+	for _, service := range servicesList {
+		servicesChannel <- service
 	}
-
-	// To-Do: actual run of service...
 }
 
-func servicePassChecks(serviceChecks Check) bool {
-	// To-Do
-	return false
+// create a worker pool by starting up numWorkers workers threads
+func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers int) {
+	for w := 0; w < numWorkers; w++ {
+		go foreman.serviceRunner(services)
+	}
+}
+
+// Here’s the worker, of which we’ll run several concurrent instances.
+func (foreman *Foreman) serviceRunner(services <-chan string) {
+	fmt.Println("enter service runner")
+	for serviceName := range services {
+		fmt.Println("run service " + serviceName)
+	}
+}
+
+func (foreman *Foreman) checker() {
+	for _, service := range foreman.services {
+		runServiceChecks(service)
+	}
+}
+
+func runServiceChecks(service Service) {
+	
 }
