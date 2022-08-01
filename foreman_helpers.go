@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 func new() *Foreman {
@@ -28,11 +29,6 @@ func initForeman() *Foreman {
 	return foreman
 }
 
-func graphHasCycle(servicesGraph map[string][]string) (bool, map[string]string) {
-	// To-Do
-	return false, nil
-}
-
 func (foreman *Foreman) topoSortServices() []string {
 	// To-Do
 	return nil
@@ -52,10 +48,63 @@ func (foreman *Foreman) runService(serviceName string) {
 	// To-Do: actual run of service...
 }
 
+func graphHasCycle(servicesGraph map[string][]string) (bool, map[string]string) {
+	var hasCycle bool = false
+	var parentMap = map[string]string{}
+	var visitingStatus = map[string]NodeStatus{}
+	for node := range servicesGraph {
+		visitingStatus[node] = notVisited
+	}
+
+	var hasCycleDFS func (string)
+	hasCycleDFS = func (node string)  {
+		if visitingStatus[node] == visited {
+			return
+		} else if visitingStatus[node] == currentlyVisiting {
+			hasCycle = true
+			parentMap[cycleStart] = node
+			return
+		}
+
+		visitingStatus[node] = currentlyVisiting
+		for _, dep := range servicesGraph[node] {
+			parentMap[dep] = node
+			hasCycleDFS(dep)
+		}
+
+		visitingStatus[node] = visited
+	}
+
+	for node := range servicesGraph {
+		parentMap[node] = null
+		hasCycleDFS(node)
+
+		if hasCycle {
+			return true, parentMap
+		}
+	}
+
+	return false, parentMap
+}
+
+func getCycleElements(parentMap map[string]string) []string {
+	cycleElements := make([]string, 0)
+	start := parentMap[cycleStart]
+	cycleElements = append(cycleElements, start)
+
+	next := parentMap[start]
+	for start != next {
+		cycleElements = append(cycleElements, next)
+		next = parentMap[next]
+	}
+
+	return cycleElements
+}
+
 func (foreman *Foreman) runServices() {
-	if cycleExist, _ := graphHasCycle(foreman.servicesGraph); cycleExist {
-		// To-Do
-		fmt.Println("found cycle please fix: " + "cycle elements")
+	if cycleExist, parentMap := graphHasCycle(foreman.servicesGraph); cycleExist {
+		cycleElementsList := getCycleElements(parentMap)
+		fmt.Printf("found cycle please fix: [%v]\n", strings.Join(cycleElementsList, ", "))
 		os.Exit(1)
 	}
 

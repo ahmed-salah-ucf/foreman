@@ -25,3 +25,4 @@ type Foreman struct {
 }
 
 type SubCommand string
+type NodeStatus int
