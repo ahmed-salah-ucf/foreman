@@ -1,12 +1,12 @@
 package main
 
+import "time"
+
 const (
 	MaxNumServices = 10
 	MaxSizeChannel = 30
 	NumWorkersThreads = 5
-)
-const (
-	startCmd SubCommand = "start"
+	TickInterval =  5 * time.Second //100 * time.Millisecond
 )
 
 const (

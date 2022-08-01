@@ -2,29 +2,31 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 )
 
 func new() *Foreman {
-	foreman := Foreman{
+	foreman := Foreman {
 		procfile: procfile,
+		signalsChannel: make(chan os.Signal, MaxSizeChannel),
+		servicesToRunChannel: make(chan string, MaxNumServices),
+		checksTicker: time.NewTicker(TickInterval),
 		services: map[string]Service{},
 		servicesGraph: map[string][]string{},
 	}
 	return &foreman
 }
 
-
-
 func initForeman() *Foreman {
 	foreman := new()
 	foreman.parseProcfile()
 	foreman.buildServicesGraph()
+	foreman.signal()
 
 	return foreman
 }
@@ -37,26 +39,13 @@ func (foreman *Foreman) runServices() {
 	}
 
 	topologicallySortedServices := foreman.topoSortServices()
-	servicesToRunChannel := make(chan string, MaxNumServices)
-	ticker := time.NewTicker(5 * time.Second)
-
-	foreman.createServiceRunners(servicesToRunChannel, NumWorkersThreads)
 	
-	sendServicesOnChannel(topologicallySortedServices, servicesToRunChannel)
+	
 
-	foreman.runPeriodicChecker(ticker)
-}
+	foreman.createServiceRunners(foreman.servicesToRunChannel, NumWorkersThreads)
+	sendServicesOnChannel(topologicallySortedServices, foreman.servicesToRunChannel)
 
-func (foreman *Foreman) runPeriodicChecker(ticker *time.Ticker) {
-	for range ticker.C {
-		go foreman.checker()
-	}
-}
-
-func sendServicesOnChannel(servicesList []string, servicesChannel chan<- string) {
-	for _, service := range servicesList {
-		servicesChannel <- service
-	}
+	foreman.runPeriodicChecker(foreman.checksTicker)
 }
 
 // create a worker pool by starting up numWorkers workers threads
@@ -68,7 +57,6 @@ func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers 
 
 // Here’s the worker, of which we’ll run several concurrent instances.
 func (foreman *Foreman) serviceRunner(services <-chan string) {
-	fmt.Println("enter service runner")
 	for serviceName := range services {
 		foreman.runService(serviceName)
 	}
@@ -81,18 +69,23 @@ func (foreman *Foreman) runService(serviceName string) {
 		serviceCmd := exec.Command(cmdName, cmdArgs...)
 
 		serviceCmd.Start()
+		go serviceCmd.Wait()
 		service.pid = serviceCmd.Process.Pid
+		fmt.Printf("[%d] %s process started [%v]\n", service.pid, service.name, time.Now())
+		foreman.services[serviceName] = service
 	}
-
-	foreman.services[serviceName] = service
 }
 
-func parseCmdLine(cmd string) (name string, arg []string) {
-	cmdLine := strings.Split(cmd, " ")
-	cmdName := cmdLine[0]
-	cmdArgs := cmdLine[1:]
+func sendServicesOnChannel(servicesList []string, servicesChannel chan<- string) {
+	for _, service := range servicesList {
+		servicesChannel <- service
+	}
+}
 
-	return cmdName, cmdArgs
+func (foreman *Foreman) runPeriodicChecker(ticker *time.Ticker) {
+	for range ticker.C {
+		go foreman.checker()
+	}
 }
 
 func (foreman *Foreman) checker() {
@@ -112,14 +105,42 @@ func runServiceChecks(service Service) {
 				syscall.Kill(service.pid, syscall.SIGKILL)
 				return
 			}
+			fmt.Printf("[%d] %s process terminated as check [%v] failed\n", service.pid, service.name, service.info.checks.cmd)
+		}
+	}
+	if len(service.info.checks.tcpPorts) > 0 {
+		for _, port := range service.info.checks.tcpPorts {
+			address := "localhost:" + port
+			_, err := net.Dial("tcp", address)
+			if err != nil {
+				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+					syscall.Kill(service.pid, syscall.SIGKILL)
+					return
+				}
+				fmt.Printf("[%d] %s process terminated as TCP port [%v] is not listening\n", service.pid, service.name, port)
+			}
 		}
 	}
 
-	if len(service.info.checks.tcpPorts) > 0 {
-		// To-Do
-	}
-
 	if len(service.info.checks.udpPorts) > 0 {
-		// To-Do
+		for _, port := range service.info.checks.udpPorts {
+			address := "localhost:" + port
+			_, err := net.Dial("udp", address)
+			if err != nil {
+				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+					syscall.Kill(service.pid, syscall.SIGKILL)
+					return
+				}
+				fmt.Printf("[%d] %s process terminated as UDP port [%v] is not listening\n", service.pid, service.name, port)
+			}
+		}
 	}
+}
+
+func parseCmdLine(cmd string) (name string, arg []string) {
+	cmdLine := strings.Split(cmd, " ")
+	cmdName := cmdLine[0]
+	cmdArgs := cmdLine[1:]
+
+	return cmdName, cmdArgs
 }
