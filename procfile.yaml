@@ -4,24 +4,25 @@ app1:
     checks:
         cmd: sleep 3
     deps: 
-        - app3
+        - redis6010
 app2:
     cmd: ping -c 50 yahoo.com
     checks:
         cmd: sleep 4
+    deps:
+        - redis8080
 
 app3:
-    cmd: redis-server --port 6010
     run_once: true
+    cmd: sleep 10
+    
+redis6010:
+    cmd: redis-server --port 6010
     checks:
         cmd: redis-cli -p 6010 ping
         tcp_ports: [6010]
 
-app4:
-    run_once: true
-    cmd: sleep 10
-
-app5:
+redis8080:
     cmd: redis-server --port 8080
     checks:
         cmd: redis-cli -p 8080 ping
