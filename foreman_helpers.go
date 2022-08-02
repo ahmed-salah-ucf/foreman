@@ -67,9 +67,7 @@ func (foreman *Foreman) runService(serviceName string) {
 	if (len(service.info.cmd)) > 0 {
 		cmdName, cmdArgs := parseCmdLine(service.info.cmd)
 		serviceCmd := exec.Command(cmdName, cmdArgs...)
-
 		serviceCmd.Start()
-		go serviceCmd.Wait()
 		service.pid = serviceCmd.Process.Pid
 		fmt.Printf("[%d] %s process started [%v]\n", service.pid, service.name, time.Now())
 		foreman.services[serviceName] = service
@@ -90,11 +88,11 @@ func (foreman *Foreman) runPeriodicChecker(ticker *time.Ticker) {
 
 func (foreman *Foreman) checker() {
 	for _, service := range foreman.services {
-		runServiceChecks(service)
+		foreman.runServiceChecks(service)
 	}
 }
 
-func runServiceChecks(service Service) {
+func (foreman *Foreman) runServiceChecks(service Service) {
 	if len(service.info.checks.cmd) > 0 {
 		cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
 		
@@ -106,6 +104,7 @@ func runServiceChecks(service Service) {
 				return
 			}
 			fmt.Printf("[%d] %s process terminated as check [%v] failed\n", service.pid, service.name, service.info.checks.cmd)
+			return
 		}
 	}
 	if len(service.info.checks.tcpPorts) > 0 {
@@ -118,6 +117,7 @@ func runServiceChecks(service Service) {
 					return
 				}
 				fmt.Printf("[%d] %s process terminated as TCP port [%v] is not listening\n", service.pid, service.name, port)
+				return
 			}
 		}
 	}
@@ -132,6 +132,7 @@ func runServiceChecks(service Service) {
 					return
 				}
 				fmt.Printf("[%d] %s process terminated as UDP port [%v] is not listening\n", service.pid, service.name, port)
+				return
 			}
 		}
 	}

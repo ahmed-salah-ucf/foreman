@@ -5,8 +5,8 @@ import "time"
 const (
 	MaxNumServices = 10
 	MaxSizeChannel = 30
-	NumWorkersThreads = 5
-	TickInterval =  5 * time.Second //100 * time.Millisecond
+	NumWorkersThreads = 10
+	TickInterval = 100 * time.Millisecond
 )
 
 const (
