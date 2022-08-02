@@ -68,6 +68,7 @@ func (foreman *Foreman) runService(serviceName string) {
 		cmdName, cmdArgs := parseCmdLine(service.info.cmd)
 		serviceCmd := exec.Command(cmdName, cmdArgs...)
 		serviceCmd.Start()
+		syscall.Setpgid(serviceCmd.Process.Pid, serviceCmd.Process.Pid)
 		service.pid = serviceCmd.Process.Pid
 		fmt.Printf("[%d] %s process started [%v]\n", service.pid, service.name, time.Now())
 		foreman.services[serviceName] = service
