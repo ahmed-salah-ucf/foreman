@@ -21,6 +21,7 @@ type ServiceInfo struct {
 type Service struct {
 	name string
 	pid int
+	status ServiceStatus
 	info ServiceInfo
 }
 
@@ -34,4 +35,7 @@ type Foreman struct {
 }
 
 type SubCommand string
+
 type NodeStatus int
+
+type ServiceStatus string

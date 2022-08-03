@@ -6,7 +6,7 @@ const (
 	MaxNumServices = 10
 	MaxSizeChannel = 30
 	NumWorkersThreads = 10
-	TickInterval = 100 * time.Millisecond
+	TickInterval = 100 * time.Second
 )
 
 const (
@@ -20,4 +20,7 @@ const (
 
 	cycleStart string = "__CYCLESTART__"
 	null string = "__NULL__"
+
+	active ServiceStatus = "ACTIVE"
+	inactive ServiceStatus = "INACTIVE"
 )

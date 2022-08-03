@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// parseProcfile parses procfile file
 func (foreman *Foreman) parseProcfile() {
 	yamlContentMap := foreman.yamlUnmarshal()
 	
@@ -19,12 +20,14 @@ func (foreman *Foreman) parseProcfileHelper(yamlContentMap map[string]map[string
 	}
 }
 
+// parseService helper function parses service in procfile
 func (foreman *Foreman) parseService(serviceName string, serviceInfo map[string]any) {
 	info := foreman.parseServiceInfo(serviceName, serviceInfo)
 
 	foreman.services[serviceName] = Service{name: serviceName, info: info}
 }
 
+// parseServiceInfo helper function parses service info for service
 func (foreman *Foreman) parseServiceInfo(serviceName string, serviceInfo map[string]any) ServiceInfo {
 	info := ServiceInfo{}
 	for key, value := range serviceInfo {
@@ -45,6 +48,7 @@ func (foreman *Foreman) parseServiceInfo(serviceName string, serviceInfo map[str
 	return info
 }
 
+// parseServiceInfoChecks helper function parses service info checks for service
 func (foreman *Foreman) parseServiceInfoChecks(value any) Check {
 	checks := Check{}
 	for checkKey, checkValue := range value.(map[string]any) {
@@ -64,6 +68,7 @@ func (foreman *Foreman) parseServiceInfoChecks(value any) Check {
 	return checks
 }
 
+// yamlUnmarshal unmarshals yaml procfile contents into go object
 func (foreman *Foreman)yamlUnmarshal() map[string]map[string]any {
 	yamlMap := make(map[string]map[string]any)
 

@@ -1,11 +1,14 @@
 package main
 
+// buildServicesGraph build the dependency graph of foreman services
 func (foreman *Foreman) buildServicesGraph() {
 	for _, service := range foreman.services {
 		foreman.servicesGraph[service.name] = service.info.deps
 	}
 }
 
+// graphHasCycle checks if the services grapth has cycle between dependencies, it
+// returns true if there is one, flase otherwise.
 func graphHasCycle(servicesGraph map[string][]string) (bool, map[string]string) {
 	var hasCycle bool = false
 	var parentMap = map[string]string{}
@@ -45,6 +48,8 @@ func graphHasCycle(servicesGraph map[string][]string) (bool, map[string]string) 
 	return false, parentMap
 }
 
+// topoSortServices sort services in topological order based on
+// the dependensies between services
 func (foreman *Foreman) topoSortServices() []string {
 	deps := make([]string, 0)
 	visitingStatus := make(map[string]NodeStatus, 0)
@@ -71,6 +76,9 @@ func (foreman *Foreman) topoSortServices() []string {
 	return deps
 }
 
+
+// getCycleElements returns the elements that caused the cycle
+// to happen from the parent map.
 func getCycleElements(parentMap map[string]string) []string {
 	cycleElements := make([]string, 0)
 	start := parentMap[cycleStart]
