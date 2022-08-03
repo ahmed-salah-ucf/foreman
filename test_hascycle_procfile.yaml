@@ -15,14 +15,14 @@ app2:
 app3:
     run_once: true
     cmd: sleep 10
-    deps:
-      - app1
     
 redis6010:
     cmd: redis-server --port 6010
     checks:
         cmd: redis-cli -p 6010 ping
         tcp_ports: [6010]
+    deps: 
+        - app1
 
 redis8080:
     cmd: redis-server --port 8080

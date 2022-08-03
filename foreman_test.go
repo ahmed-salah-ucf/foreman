@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 )
 
 const testProcfile = "test_procfile.yaml"
 const testProcfileMalform = "test_malform_procfile.yaml"
+const testHasCycleProcfile = "test_hascycle_procfile.yaml"
 
 var testProcfileStruct = map[string]Service {
 	"app1": {
@@ -31,6 +34,7 @@ var testProcfileStruct = map[string]Service {
 		info: ServiceInfo {
 			cmd: "sleep 10",
 			runOnce: true,
+			deps: []string {"app1"},
 		},
 	},
 	"redis6010": {
@@ -81,6 +85,96 @@ func TestInitForeman(t *testing.T) {
 
 		assertError(t, got, want)
 	})
+
+	t.Run("build services graph successfully", func(t *testing.T) {
+		foreman := Foreman {
+			procfile: testProcfile,
+			signalsChannel: make(chan os.Signal, MaxSizeChannel),
+			servicesToRunChannel: make(chan string, MaxNumServices),
+			checksTicker: time.NewTicker(TickInterval),
+			services: map[string]Service{},
+			servicesGraph: map[string][]string{},
+		}
+		foreman.parseProcfile()
+		foreman.buildServicesGraph()
+		graphHasCycle(foreman.servicesGraph)
+		got := foreman.servicesGraph
+		want := map[string][]string {
+			"app1": {"redis6010"},
+			"app2": {"redis8080"},
+			"app3": {},
+			"redis6010": {},
+			"redis8080": {},
+		}
+		assertEqualGraphs(t, got, want)
+	})
+
+	t.Run("services graph has cycle", func(t *testing.T) {
+		foreman := Foreman {
+			procfile: testHasCycleProcfile,
+			signalsChannel: make(chan os.Signal, MaxSizeChannel),
+			servicesToRunChannel: make(chan string, MaxNumServices),
+			checksTicker: time.NewTicker(TickInterval),
+			services: map[string]Service{},
+			servicesGraph: map[string][]string{},
+		}
+		foreman.parseProcfile()
+		foreman.buildServicesGraph()
+		got, parentMap := graphHasCycle(foreman.servicesGraph)
+		
+		if got == false {
+			t.Fatalf("expected to get %v but got %v\n", true, false)
+		}
+
+		cycleElements := getCycleElements(parentMap)
+		sort.Strings(cycleElements)
+		wantElements := []string{"app1", "redis6010"}
+
+		if !reflect.DeepEqual(cycleElements, wantElements) {
+			t.Fatalf("expected to get %v but got %v\n", wantElements, cycleElements)
+		}
+	})
+
+	t.Run("toposort services", func(t *testing.T) {
+		foreman := Foreman {
+			procfile: testProcfile,
+			signalsChannel: make(chan os.Signal, MaxSizeChannel),
+			servicesToRunChannel: make(chan string, MaxNumServices),
+			checksTicker: time.NewTicker(TickInterval),
+			services: map[string]Service{},
+			servicesGraph: map[string][]string{},
+		}
+		foreman.parseProcfile()
+		foreman.buildServicesGraph()
+		deps := foreman.topoSortServices()
+		fmt.Println(deps)
+		assertTopologicallySortedDeps(t, foreman, deps)
+	})
+}
+
+func assertTopologicallySortedDeps(t *testing.T, foreman Foreman, got []string) {
+	t.Helper()
+	nodesSet := make(map[string]any)
+	for _, dep := range got {
+		for _, depDep := range foreman.services[dep].info.deps {
+			if _, ok := nodesSet[depDep]; !ok {
+				t.Fatalf("not expected to run %v before %v", dep, depDep)
+			}
+		}
+		nodesSet[dep] = 1
+	}
+}
+
+func assertEqualGraphs(t *testing.T, got, want map[string][]string) {
+	t.Helper()
+
+	for key, deps := range got {
+		if !reflect.DeepEqual(deps, want[key]) {
+			if len(deps) != 0 && len(want[key]) != 0 {
+				t.Fatalf("got:\n%q\nwant:\n%q", deps, want[key])
+			}
+		}
+	}
 }
 
 func assertEqualServices(t *testing.T, got, want map[string]Service) {
