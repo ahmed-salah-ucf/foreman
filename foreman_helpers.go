@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -139,31 +139,33 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 			return
 		}
 	}
-	if len(service.info.checks.tcpPorts) > 0 {
+	if len(service.info.checks.tcpPorts) > 0 && service.status == active {
 		for _, port := range service.info.checks.tcpPorts {
-			address := "localhost:" + port
-			_, err := net.Dial("tcp", address)
-			if err != nil {
+			cmd := fmt.Sprintf("netstat -lnptu | grep tcp | grep %s -m 1 | awk '{print $7}'", port)
+			out, _ := exec.Command("bash", "-c", cmd).Output()
+			pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
+			if err != nil || pid != service.pid {
 				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
 					syscall.Kill(service.pid, syscall.SIGKILL)
 					return
 				}
-				fmt.Printf("[%d] %s process terminated as TCP port [%v] is not listening\n", service.pid, service.name, port)
+				fmt.Printf("[%d] %s process terminated, as TCP port [%v] is not listening\n", service.pid, service.name, port)
 				return
 			}
 		}
 	}
 
-	if len(service.info.checks.udpPorts) > 0 {
+	if len(service.info.checks.udpPorts) > 0 && service.status == active{
 		for _, port := range service.info.checks.udpPorts {
-			address := "localhost:" + port
-			_, err := net.Dial("udp", address)
-			if err != nil {
+			cmd := fmt.Sprintf("netstat -lnptu | grep udp | grep %s -m 1 | awk '{print $7}'", port)
+			out, _ := exec.Command("bash", "-c", cmd).Output()
+			pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
+			if err != nil || pid != service.pid {
 				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
 					syscall.Kill(service.pid, syscall.SIGKILL)
 					return
 				}
-				fmt.Printf("[%d] %s process terminated as UDP port [%v] is not listening\n", service.pid, service.name, port)
+				fmt.Printf("[%d] %s process terminated, as UDP port [%v] is not listening\n", service.pid, service.name, port)
 				return
 			}
 		}

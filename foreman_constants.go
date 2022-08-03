@@ -6,7 +6,7 @@ const (
 	MaxNumServices = 10
 	MaxSizeChannel = 30
 	NumWorkersThreads = 10
-	TickInterval = 100 * time.Second
+	TickInterval = 100 * time.Microsecond
 )
 
 const (
