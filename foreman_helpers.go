@@ -28,7 +28,10 @@ func new() *Foreman {
 func initForeman() *Foreman {
 	foreman := new()
 	foreman.signal()
-	foreman.parseProcfile()
+	if err := foreman.parseProcfile(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 	foreman.buildServicesGraph()
 
 	return foreman

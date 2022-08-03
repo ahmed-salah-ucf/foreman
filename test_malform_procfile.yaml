@@ -1,0 +1,30 @@
+app1:
+    cmd: ping -c 1 google.com
+    run_once: true
+    checks:
+        cmd: sleep 3
+    deps: 
+        - redis6010
+app2:
+    cmd: ping -c 50 yahoo.com
+    checks:
+        cmd: sleep 4
+    deps:
+        - redis8080
+
+app1:
+    run_once: true
+    cmd: sleep 10
+    
+redis6010:
+    cmd: redis-server --port 6010
+    checks:
+        cmd: redis-cli -p 6010 ping
+        tcp_ports: [6010]
+
+redis8080:
+    cmd: redis-server --port 8080
+    checks:
+        cmd: redis-cli -p 8080 ping
+        tcp_ports: [8080]
+        udp_ports: [80]

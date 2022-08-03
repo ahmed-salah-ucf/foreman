@@ -8,10 +8,14 @@ import (
 )
 
 // parseProcfile parses procfile file
-func (foreman *Foreman) parseProcfile() {
-	yamlContentMap := foreman.yamlUnmarshal()
-	
+func (foreman *Foreman) parseProcfile() error {
+	yamlContentMap, err := foreman.yamlUnmarshal()
+	if err != nil {
+		return err
+	}
 	foreman.parseProcfileHelper(yamlContentMap)
+
+	return nil
 }
 
 func (foreman *Foreman) parseProcfileHelper(yamlContentMap map[string]map[string]any) {
@@ -69,15 +73,12 @@ func (foreman *Foreman) parseServiceInfoChecks(value any) Check {
 }
 
 // yamlUnmarshal unmarshals yaml procfile contents into go object
-func (foreman *Foreman)yamlUnmarshal() map[string]map[string]any {
+func (foreman *Foreman)yamlUnmarshal() (map[string]map[string]any, error) {
 	yamlMap := make(map[string]map[string]any)
 
     data, _ := os.ReadFile(foreman.procfile)
 
     err := yaml.Unmarshal([]byte(data), yamlMap)
-    if err != nil {
-        panic(err)
-    }
 
-	return yamlMap
+	return yamlMap, err
 }
