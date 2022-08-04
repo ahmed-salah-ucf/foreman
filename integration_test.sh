@@ -74,4 +74,4 @@ TestTerminationOnBrockenDependency
 rm ./foreman
 
 echo "status ok: TEST PASSED"
-exit 0
+exit 0 
