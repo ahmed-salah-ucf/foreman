@@ -91,6 +91,10 @@ func (foreman *Foreman) runService(serviceName string) {
 	if (len(service.info.cmd)) > 0 {
 		if ok, _ := foreman.serviceDepsAreAllActive(service); ok {
 			serviceCmd := exec.Command("bash", "-c", service.info.cmd)
+			serviceCmd.SysProcAttr = &syscall.SysProcAttr{
+				Setpgid: true,
+				Pgid: 0,
+			}
 			serviceCmd.Start()
 			service.status = active
 			service.pid = serviceCmd.Process.Pid
