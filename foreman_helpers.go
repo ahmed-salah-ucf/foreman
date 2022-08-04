@@ -95,7 +95,6 @@ func (foreman *Foreman) runService(serviceName string) {
 			serviceCmd.Start()
 			service.status = active
 			service.pid = serviceCmd.Process.Pid
-			syscall.Setpgid(service.pid, service.pid)
 			fmt.Printf("[%d] %s process started [%v]\n", service.pid, service.name, time.Now())
 			foreman.services[serviceName] = service
 		} else {
@@ -121,7 +120,9 @@ func (foreman *Foreman) runPeriodicChecker(ticker *time.Ticker) {
 // checker the checker process that runs all the checks of all services.
 func (foreman *Foreman) checker() {
 	for _, service := range foreman.services {
-		foreman.runServiceChecks(service)
+		if service.status == active {
+			foreman.runServiceChecks(service)
+		}
 	}
 }
 
@@ -136,7 +137,7 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 			fmt.Printf("[%d] %s process terminated as dependency [%q] check failed\n", service.pid, service.name, dep)
 			return
 		}
-		if len(service.info.checks.cmd) > 0 {
+		if service.status == active && len(service.info.checks.cmd) > 0 {
 			cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
 			
 			checkCmd := exec.Command(cmdName, cmdArgs...)
@@ -150,7 +151,7 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 				return
 			}
 		}
-		if len(service.info.checks.tcpPorts) > 0 {
+		if service.status == active && len(service.info.checks.tcpPorts) > 0 {
 			for _, port := range service.info.checks.tcpPorts {
 				cmd := fmt.Sprintf("netstat -lnptu | grep tcp | grep %s -m 1 | awk '{print $7}'", port)
 				out, _ := exec.Command("bash", "-c", cmd).Output()
@@ -166,7 +167,7 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 			}
 		}
 	
-		if len(service.info.checks.udpPorts) > 0 {
+		if service.status == active && len(service.info.checks.udpPorts) > 0 {
 			for _, port := range service.info.checks.udpPorts {
 				cmd := fmt.Sprintf("netstat -lnptu | grep udp | grep %s -m 1 | awk '{print $7}'", port)
 				out, _ := exec.Command("bash", "-c", cmd).Output()

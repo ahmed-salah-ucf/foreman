@@ -6,11 +6,14 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/shirou/gopsutil/process"
 )
 
 // signal initialize signal handling in foreman
 func (foreman *Foreman) signal () {
-	signal.Notify(foreman.signalsChannel, syscall.SIGCHLD)
+	sigs := []os.Signal {syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGCHLD, syscall.SIGHUP}
+	signal.Notify(foreman.signalsChannel, sigs...)
 	go foreman.receiveSignals(foreman.signalsChannel)
 }
 
@@ -21,18 +24,31 @@ func (foreman *Foreman) receiveSignals(sigChannel <-chan os.Signal) {
 		switch sig {
 		case syscall.SIGCHLD:
 			foreman.sigchldHandler()
+		default:
+			foreman.killServicesAndExit()
 		}
 	}
+}
+
+// sigintHandler handles SIGINT signals
+func (foreman *Foreman) killServicesAndExit() {
+	for _, service := range foreman.services {
+		fmt.Println(service.pid)
+        syscall.Kill(service.pid, syscall.SIGINT)
+    }
+    os.Exit(0)
 }
 
 
 // sigchldHandler handles SIGCHLD signals
 func (foreman *Foreman) sigchldHandler() {
 	for _, service := range foreman.services {
-		p, _ := os.FindProcess(service.pid)
-		stat, _ := p.Wait()
-		if stat.ExitCode() != -1 {
+		childProcess, _ := process.NewProcess(int32(service.pid))
+		childStatus, _ := childProcess.Status()
+		if childStatus == "Z" {
 			service.status = inactive
+			p, _ := os.FindProcess(service.pid)
+			p.Wait()
 			fmt.Printf("[%d] %s process terminated [%v]\n", service.pid, service.name, time.Now())
 			if !service.info.runOnce {
 				fmt.Printf("[%d] %s process restarted [%v]\n", service.pid, service.name, time.Now())

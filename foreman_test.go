@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-const testProcfile = "tests/test_procfile.yaml"
-const testProcfileMalform = "tests/test_malform_procfile.yaml"
-const testHasCycleProcfile = "tests/test_hascycle_procfile.yaml"
+const testProcfile = "tests_files/test_procfile.yaml"
+const testProcfileMalform = "tests_files/test_malform_procfile.yaml"
+const testHasCycleProcfile = "tests_files/test_hascycle_procfile.yaml"
 
 var testProcfileStruct = map[string]Service {
 	"app1": {

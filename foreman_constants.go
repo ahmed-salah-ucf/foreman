@@ -3,10 +3,10 @@ package main
 import "time"
 
 const (
-	MaxNumServices = 10
-	MaxSizeChannel = 30
+	MaxNumServices = 1e6
+	MaxSizeChannel = 1e6
 	NumWorkersThreads = 10
-	TickInterval = 100 * time.Microsecond
+	TickInterval = 10 * time.Second
 )
 
 const (
