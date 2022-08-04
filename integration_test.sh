@@ -62,7 +62,7 @@ TestTerminationOnBrockenDependency() {
 
 Clean() {
     foreman=$(ps | grep "foreman" | awk '{print $1}')
-    kill -SIGINT $foreman
+    [[ ! -z $foreman ]] && kill -SIGINT $foreman
 }
 
 go build -o foreman foreman.go foreman_constants.go foreman_helpers.go foreman_types.go procfile.go services_graph.go signals.go
