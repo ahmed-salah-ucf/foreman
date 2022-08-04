@@ -74,14 +74,14 @@ func (foreman *Foreman) serviceRunner(services <-chan string) {
 }
 
 // serviceDepsAreAllActive checks if the all dependences of a service are active.
-func (foreman *Foreman) serviceDepsAreAllActive(service Service) bool {
+func (foreman *Foreman) serviceDepsAreAllActive(service Service) (bool, string) {
 	for _, dep := range service.info.deps {
 		if foreman.services[dep].status == inactive {
 			foreman.restartService(dep)
-			return false
+			return false, dep
 		} 
 	}
-	return true
+	return true, ""
 }
 
 // runService run service by spawning a new process for this service.
@@ -89,7 +89,7 @@ func (foreman *Foreman) serviceDepsAreAllActive(service Service) bool {
 func (foreman *Foreman) runService(serviceName string) {
 	service := foreman.services[serviceName]
 	if (len(service.info.cmd)) > 0 {
-		if foreman.serviceDepsAreAllActive(service) {
+		if ok, _ := foreman.serviceDepsAreAllActive(service); ok {
 			cmdName, cmdArgs := parseCmdLine(service.info.cmd)
 			serviceCmd := exec.Command(cmdName, cmdArgs...)
 			serviceCmd.Start()
@@ -98,6 +98,8 @@ func (foreman *Foreman) runService(serviceName string) {
 			syscall.Setpgid(service.pid, service.pid)
 			fmt.Printf("[%d] %s process started [%v]\n", service.pid, service.name, time.Now())
 			foreman.services[serviceName] = service
+		} else {
+			foreman.restartService(serviceName)
 		}
 	}
 }
@@ -125,48 +127,58 @@ func (foreman *Foreman) checker() {
 
 // runServiceChecks helper function runs the checks of a service.
 func (foreman *Foreman) runServiceChecks(service Service) {
-	if len(service.info.checks.cmd) > 0 {
-		cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
-		
-		checkCmd := exec.Command(cmdName, cmdArgs...)
-
-		if err := checkCmd.Run(); err != nil {
-			if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+	if service.status == active {
+		if ok, dep := foreman.serviceDepsAreAllActive(service); !ok {
+			if err := syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
 				syscall.Kill(service.pid, syscall.SIGKILL)
 				return
 			}
-			fmt.Printf("[%d] %s process terminated as check [%v] failed\n", service.pid, service.name, service.info.checks.cmd)
+			fmt.Printf("[%d] %s process terminated as dependency [%q] check failed\n", service.pid, service.name, dep)
 			return
 		}
-	}
-	if len(service.info.checks.tcpPorts) > 0 && service.status == active {
-		for _, port := range service.info.checks.tcpPorts {
-			cmd := fmt.Sprintf("netstat -lnptu | grep tcp | grep %s -m 1 | awk '{print $7}'", port)
-			out, _ := exec.Command("bash", "-c", cmd).Output()
-			pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
-			if err != nil || pid != service.pid {
-				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+		if len(service.info.checks.cmd) > 0 {
+			cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
+			
+			checkCmd := exec.Command(cmdName, cmdArgs...)
+	
+			if err := checkCmd.Run(); err != nil {
+				if err := syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
 					syscall.Kill(service.pid, syscall.SIGKILL)
 					return
 				}
-				fmt.Printf("[%d] %s process terminated, as TCP port [%v] is not listening\n", service.pid, service.name, port)
+				fmt.Printf("[%d] %s process terminated as check [%v] failed\n", service.pid, service.name, service.info.checks.cmd)
 				return
 			}
 		}
-	}
-
-	if len(service.info.checks.udpPorts) > 0 && service.status == active{
-		for _, port := range service.info.checks.udpPorts {
-			cmd := fmt.Sprintf("netstat -lnptu | grep udp | grep %s -m 1 | awk '{print $7}'", port)
-			out, _ := exec.Command("bash", "-c", cmd).Output()
-			pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
-			if err != nil || pid != service.pid {
-				if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
-					syscall.Kill(service.pid, syscall.SIGKILL)
+		if len(service.info.checks.tcpPorts) > 0 {
+			for _, port := range service.info.checks.tcpPorts {
+				cmd := fmt.Sprintf("netstat -lnptu | grep tcp | grep %s -m 1 | awk '{print $7}'", port)
+				out, _ := exec.Command("bash", "-c", cmd).Output()
+				pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
+				if err != nil || pid != service.pid {
+					if err := syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+						syscall.Kill(service.pid, syscall.SIGKILL)
+						return
+					}
+					fmt.Printf("[%d] %s process terminated, as TCP port [%v] is not listening\n", service.pid, service.name, port)
 					return
 				}
-				fmt.Printf("[%d] %s process terminated, as UDP port [%v] is not listening\n", service.pid, service.name, port)
-				return
+			}
+		}
+	
+		if len(service.info.checks.udpPorts) > 0 {
+			for _, port := range service.info.checks.udpPorts {
+				cmd := fmt.Sprintf("netstat -lnptu | grep udp | grep %s -m 1 | awk '{print $7}'", port)
+				out, _ := exec.Command("bash", "-c", cmd).Output()
+				pid, err := strconv.Atoi(strings.Split(string(out), "/")[0])
+				if err != nil || pid != service.pid {
+					if syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
+						syscall.Kill(service.pid, syscall.SIGKILL)
+						return
+					}
+					fmt.Printf("[%d] %s process terminated, as UDP port [%v] is not listening\n", service.pid, service.name, port)
+					return
+				}
 			}
 		}
 	}
