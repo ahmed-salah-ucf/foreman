@@ -90,8 +90,7 @@ func (foreman *Foreman) runService(serviceName string) {
 	service := foreman.services[serviceName]
 	if (len(service.info.cmd)) > 0 {
 		if ok, _ := foreman.serviceDepsAreAllActive(service); ok {
-			cmdName, cmdArgs := parseCmdLine(service.info.cmd)
-			serviceCmd := exec.Command(cmdName, cmdArgs...)
+			serviceCmd := exec.Command("bash", "-c", service.info.cmd)
 			serviceCmd.Start()
 			service.status = active
 			service.pid = serviceCmd.Process.Pid
@@ -138,9 +137,8 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 			return
 		}
 		if service.status == active && len(service.info.checks.cmd) > 0 {
-			cmdName, cmdArgs := parseCmdLine(service.info.checks.cmd)
 			
-			checkCmd := exec.Command(cmdName, cmdArgs...)
+			checkCmd := exec.Command("bash", "-c", service.info.checks.cmd)
 	
 			if err := checkCmd.Run(); err != nil {
 				if err := syscall.Kill(service.pid, syscall.SIGTERM); err != nil {
@@ -183,15 +181,4 @@ func (foreman *Foreman) runServiceChecks(service Service) {
 			}
 		}
 	}
-}
-
-
-// parseCmdLine helper function parses command line string
-// into command name and list of args.
-func parseCmdLine(cmd string) (name string, arg []string) {
-	cmdLine := strings.Split(cmd, " ")
-	cmdName := cmdLine[0]
-	cmdArgs := cmdLine[1:]
-
-	return cmdName, cmdArgs
 }
